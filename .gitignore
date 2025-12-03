@@ -13,6 +13,8 @@ model/Train/train.csv
 /model/Train/train.csv
 model/Train/valid.csv
 /model/Train/valid.csv
+mbti_model
+/mbti_model
 .env
 
 # Byte-compiled / optimized / DLL files
