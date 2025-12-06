@@ -7,7 +7,6 @@ from transformers import (
     AutoModelForSequenceClassification,
     Trainer,
     TrainingArguments,
-    DataCollatorWithPadding
 )
 import numpy as np
 import os

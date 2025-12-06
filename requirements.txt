@@ -6,6 +6,8 @@ numpy>=1.25.0
 tqdm>=4.66.0
 requests>=2.31.0
 python-dotenv>=1.0.1
+flask>=3.0.0
+flask-cors>=4.0.0
 datasets
 sentencepiece
 accelerate
@@ -18,3 +20,4 @@ matplotlib>=3.7.0
 seaborn>=0.12.0
 nltk>=3.8.0
 sentence-transformers
+tf-keras

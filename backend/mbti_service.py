@@ -26,9 +26,45 @@ NEUTRAL_WORDS = {
     "done", "waiting", "coming", "omw"
 }
 
+# System messages and metadata patterns to filter out
+SYSTEM_MESSAGE_PATTERNS = [
+    r"<media omitted>",
+    r"media omitted",
+    r"this message was deleted",
+    r"you deleted this message",
+    r"messages and calls are end-to-end encrypted",
+    r"created group",
+    r"added .+",
+    r"removed .+",
+    r"left",
+    r"changed .+ to",
+    r"changed this group's icon",
+    r"changed the subject to",
+    r"@\[U\+[0-9A-F]+\]",
+]
+
+def is_system_message(text):
+    """Check if a message is a system message or metadata"""
+    if not isinstance(text, str):
+        return True
+    
+    text_lower = text.strip().lower()
+    
+    # Check against system message patterns
+    for pattern in SYSTEM_MESSAGE_PATTERNS:
+        if re.search(pattern, text_lower, re.IGNORECASE):
+            return True
+    
+    return False
+
 def is_neutral(text):
     if not isinstance(text, str):
         return True
+    
+    # First check if it's a system message
+    if is_system_message(text):
+        return True
+    
     text = text.strip().lower()
     text_clean = re.sub(r'[^\w\s]', '', text)
     if not text_clean: return True
@@ -70,10 +106,19 @@ def parse_chat_users(file_path):
             line = line.strip()
             match = line_regex.match(line)
             if match:
-                _, _, sender, _ = match.groups()
+                _, _, sender, message = match.groups()
                 sender = sender.strip()
-                if "removed" not in sender.lower() and "left" not in sender.lower() and "added" not in sender.lower():
-                    senders.add(sender)
+                message = message.strip()
+                
+                # Filter out system messages
+                if is_system_message(message):
+                    continue
+                
+                # Filter out senders that are part of system messages
+                if any(keyword in sender.lower() for keyword in ["removed", "left", "added", "created group"]):
+                    continue
+                    
+                senders.add(sender)
     
     sorted_senders = sorted(list(senders))
     print(f"Found users: {sorted_senders}")
@@ -90,9 +135,15 @@ def parse_chat_messages(file_path):
             match = line_regex.match(line)
             if match:
                 date_str, time_str, sender, msg = match.groups()
+                msg = msg.strip()
+                
+                # Filter out system messages
+                if is_system_message(msg):
+                    continue
+                
                 try:
                     dt = datetime.strptime(date_str, "%d/%m/%Y")
-                    messages.append({"datetime": dt, "sender": sender.strip(), "message": msg.strip()})
+                    messages.append({"datetime": dt, "sender": sender.strip(), "message": msg})
                 except ValueError:
                     continue
     return messages
