@@ -8,9 +8,9 @@ from collections import defaultdict, Counter
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
 # --- Configuration ---
-MODEL_DIR = "mbti_model"
-CHAT_FILE = "data/chatAbdur.txt"
-OUTPUT_DIR = "output"
+MODEL_DIR = "../Train/mbti_model"
+CHAT_FILE = "../../data/chatAbdur.txt"
+OUTPUT_DIR = "../Train/output"
 
 # --- Neutral Words Filter (Same as training) ---
 NEUTRAL_WORDS = {
