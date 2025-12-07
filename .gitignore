@@ -13,6 +13,8 @@ model/Train/train.csv
 /model/Train/train.csv
 model/Train/valid.csv
 /model/Train/valid.csv
+model/Train/*csv
+/model/Train/*csv
 mbti_model
 /mbti_model
 results
