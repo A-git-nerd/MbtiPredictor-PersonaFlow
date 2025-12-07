@@ -40,7 +40,14 @@ SYSTEM_MESSAGE_PATTERNS = [
     r"changed .+ to",
     r"changed this group's icon",
     r"changed the subject to",
+    r"changed the group name",
     r"@\[U\+[0-9A-F]+\]",
+]
+
+# Sender name patterns to filter out (these appear as "senders" but are actually system messages)
+INVALID_SENDER_PATTERNS = [
+    r"you changed the group name",
+    r"changed the group name",
 ]
 
 def is_system_message(text):
@@ -54,6 +61,24 @@ def is_system_message(text):
     for pattern in SYSTEM_MESSAGE_PATTERNS:
         if re.search(pattern, text_lower, re.IGNORECASE):
             return True
+    
+    return False
+
+def is_invalid_sender(sender):
+    """Check if a sender name is actually a system message"""
+    if not isinstance(sender, str):
+        return True
+    
+    sender_lower = sender.strip().lower()
+    
+    # Check against invalid sender patterns
+    for pattern in INVALID_SENDER_PATTERNS:
+        if re.search(pattern, sender_lower, re.IGNORECASE):
+            return True
+    
+    # Filter out senders that are part of system messages
+    if any(keyword in sender_lower for keyword in ["removed", "left", "added", "created group"]):
+        return True
     
     return False
 
@@ -114,14 +139,14 @@ def parse_chat_users(file_path):
                 if is_system_message(message):
                     continue
                 
-                # Filter out senders that are part of system messages
-                if any(keyword in sender.lower() for keyword in ["removed", "left", "added", "created group"]):
+                # Filter out invalid senders
+                if is_invalid_sender(sender):
                     continue
                     
                 senders.add(sender)
     
     sorted_senders = sorted(list(senders))
-    print(f"Found users: {sorted_senders}")
+    print(f"Found {len(sorted_senders)} users: {sorted_senders}")
     return sorted_senders
 
 def parse_chat_messages(file_path):
@@ -135,15 +160,20 @@ def parse_chat_messages(file_path):
             match = line_regex.match(line)
             if match:
                 date_str, time_str, sender, msg = match.groups()
+                sender = sender.strip()
                 msg = msg.strip()
                 
                 # Filter out system messages
                 if is_system_message(msg):
                     continue
                 
+                # Filter out invalid senders
+                if is_invalid_sender(sender):
+                    continue
+                
                 try:
                     dt = datetime.strptime(date_str, "%d/%m/%Y")
-                    messages.append({"datetime": dt, "sender": sender.strip(), "message": msg})
+                    messages.append({"datetime": dt, "sender": sender, "message": msg})
                 except ValueError:
                     continue
     return messages
