@@ -14,11 +14,11 @@ import os
 import json
 
 # --- Config ---
-MODEL_DIR = "../../mbti_model"  
+MODEL_DIR = "../Train/mbti_model"  
 VALID_DATA = "../Train/valid.csv"
 OUTPUT_DIR = "."
 MAX_LEN = 128
-BATCH_SIZE = 16
+BATCH_SIZE = 50
 
 class MBTIDataset(torch.utils.data.Dataset):
     def __init__(self, encodings, labels):
@@ -48,9 +48,10 @@ def evaluate_model():
     # Load model and tokenizer
     print(f"\n2. Loading model from {MODEL_DIR}...")
     
-    # Force CUDA if available
+    # Force CUDA:0 if available
     if torch.cuda.is_available():
         device = torch.device("cuda:0")
+        torch.cuda.set_device(0)  # Explicitly set to GPU 0
         print(f"   Using device: cuda:0 (GPU)")
         print(f"   GPU Name: {torch.cuda.get_device_name(0)}")
     else:
@@ -61,6 +62,9 @@ def evaluate_model():
     model = AutoModelForSequenceClassification.from_pretrained(MODEL_DIR)
     model.to(device)
     model.eval()
+    
+    # Verify model is on correct device
+    print(f"   Model device: {next(model.parameters()).device}")
     
     # Load classes
     classes = np.load(os.path.join(MODEL_DIR, "classes.npy"), allow_pickle=True)
