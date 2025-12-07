@@ -1,5 +1,7 @@
 import pandas as pd
 import torch
+import torch.nn as nn
+import torch.nn.functional as F
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import LabelEncoder
 from transformers import (
@@ -13,7 +15,7 @@ import os
 import re
 
 # --- Config ---
-MODEL_NAME = "bert-base-multilingual-cased"
+MODEL_NAME = "xlm-roberta-base"
 DATA_FILE = "train.csv"
 OUTPUT_DIR = "mbti_model"
 MAX_LEN = 128
@@ -22,7 +24,6 @@ EPOCHS = 3
 LEARNING_RATE = 2e-5
 
 # --- Neutral Words Filter ---
-# These are words/phrases that are too generic to indicate personality
 NEUTRAL_WORDS = {
     "ok", "okay", "k", "kk", "g", "han", "haan", "hmm", "hmmm", "acha", "achaa",
     "thanks", "thx", "thank you", "shukriya", "sahi", "theek", "theek hai",
@@ -40,7 +41,6 @@ def is_neutral(text):
     if not isinstance(text, str):
         return True
     text = text.strip().lower()
-    # Remove punctuation
     text_clean = re.sub(r'[^\w\s]', '', text)
     
     if not text_clean:
@@ -52,11 +52,29 @@ def is_neutral(text):
     if text_clean in NEUTRAL_WORDS:
         return True
         
-    # Filter very short messages (less than 3 chars) 
     if len(text_clean) < 2: 
         return True
         
     return False
+
+class FocalLoss(nn.Module):
+    def __init__(self, alpha=None, gamma=2.0, reduction='mean'):
+        super(FocalLoss, self).__init__()
+        self.alpha = alpha
+        self.gamma = gamma
+        self.reduction = reduction
+
+    def forward(self, inputs, targets):
+        ce_loss = F.cross_entropy(inputs, targets, reduction='none', weight=self.alpha)
+        pt = torch.exp(-ce_loss)
+        focal_loss = ((1 - pt) ** self.gamma) * ce_loss
+
+        if self.reduction == 'mean':
+            return focal_loss.mean()
+        elif self.reduction == 'sum':
+            return focal_loss.sum()
+        else:
+            return focal_loss
 
 def load_and_preprocess_data(file_path):
     print(f"Loading data from {file_path}...")
@@ -64,7 +82,10 @@ def load_and_preprocess_data(file_path):
     
     df.dropna(subset=['english', 'mbti'], inplace=True)
     
-    text_col = 'roman_urdu'
+    # Check for both 'roman_urdu' and 'english' columns, prefer 'roman_urdu' if valid
+    # cuz 90% dataset was in roman urdu during training
+    text_col = 'roman_urdu' if 'roman_urdu' in df.columns else 'english'
+    
     initial_count = len(df)
     print(f"Initial records: {initial_count}")
     
@@ -100,13 +121,13 @@ def compute_metrics(pred):
     from sklearn.metrics import accuracy_score, precision_recall_fscore_support
     labels = pred.label_ids
     preds = pred.predictions.argmax(-1)
-    precision, recall, f1, _ = precision_recall_fscore_support(labels, preds, average='weighted')
+    precision, recall, f1, _ = precision_recall_fscore_support(labels, preds, average='macro', zero_division=0)
     acc = accuracy_score(labels, preds)
     return {
         'accuracy': acc,
-        'f1': f1,
-        'precision': precision,
-        'recall': recall
+        'f1_macro': f1,
+        'precision_macro': precision,
+        'recall_macro': recall
     }
 
 def main():
@@ -115,6 +136,7 @@ def main():
     label_encoder = LabelEncoder()
     df['label'] = label_encoder.fit_transform(df['mbti'])
     
+    os.makedirs(OUTPUT_DIR, exist_ok=True)
     np.save(os.path.join(OUTPUT_DIR, 'classes.npy'), label_encoder.classes_)
     print(f"Classes: {label_encoder.classes_}")
     
@@ -126,12 +148,14 @@ def main():
         stratify=df['label'] 
     )
     
+    # Compute Class Weights for Focal Loss alpha
     class_counts = np.bincount(df['label'])
     total_samples = len(df)
     num_classes = len(label_encoder.classes_)
+    # Standard inverse frequency weights
     class_weights = total_samples / (num_classes * class_counts)
     class_weights = torch.tensor(class_weights, dtype=torch.float)
-    print(f"Class Weights: {class_weights}")
+    print(f"Class Weights (for Focal Loss alpha): {class_weights}")
     
     print("Tokenizing...")
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
@@ -147,18 +171,16 @@ def main():
         num_labels=len(label_encoder.classes_)
     )
     
-    # Custom Trainer for Class Weights 
-    # CUZ there are many INTJ msgs
-    class WeightedTrainer(Trainer):
+    # Custom Trainer with Focal Loss
+    class FocalTrainer(Trainer):
         def compute_loss(self, model, inputs, return_outputs=False, num_items_in_batch=None):
             labels = inputs.get("labels")
             outputs = model(**inputs)
             logits = outputs.get("logits")
-            loss_fct = torch.nn.CrossEntropyLoss(weight=class_weights.to(model.device))
+            loss_fct = FocalLoss(alpha=class_weights.to(model.device), gamma=2.0)
             loss = loss_fct(logits.view(-1, self.model.config.num_labels), labels.view(-1))
             return (loss, outputs) if return_outputs else loss
 
-    #Training
     training_args = TrainingArguments(
         output_dir='./results',
         num_train_epochs=EPOCHS,
@@ -167,15 +189,16 @@ def main():
         warmup_steps=500,
         weight_decay=0.01,
         logging_dir='./logs',
-        logging_steps=100,
+        logging_steps=50,
         eval_strategy="epoch", 
         save_strategy="epoch",
         load_best_model_at_end=True,
         fp16=torch.cuda.is_available(), 
-        dataloader_num_workers=0
+        dataloader_num_workers=0,
+        report_to="none"
     )
     
-    trainer = WeightedTrainer(
+    trainer = FocalTrainer(
         model=model,
         args=training_args,
         train_dataset=train_dataset,
@@ -192,5 +215,4 @@ def main():
     print("Training complete.")
 
 if __name__ == "__main__":
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
     main()
