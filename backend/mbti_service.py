@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 from collections import defaultdict
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
 
-MODEL_DIR = "../mbti_model" 
+MODEL_DIR = "../model/Train/mbti_model" 
 TIMELINE = "data/timeline.csv"
 GROUPS = "data/groups.csv"
 ALL_CHATS = "data/all_chats.csv"
