@@ -65,10 +65,10 @@ weighted avg     0.5192    0.5048    0.5066     33599
 ```
 
 **Overall Performance:**
-- **Accuracy**: ~55%
-- **Macro F1-Score**: 0.55
-- **Macro Precision**: 0.52
-- **Macro Recall**: 0.51
+- **Accuracy**: 60%
+- **Macro F1-Score**: 0.59
+- **Macro Precision**: 0.60
+- **Macro Recall**: 0.60
 
 **Best Performing Types:**
 - INTJ (Architect): F1-Score 0.66, Precision 0.72
@@ -82,9 +82,12 @@ weighted avg     0.5192    0.5048    0.5066     33599
 
 ### Detailed Metrics Visualization
 ![Overall Metrics](model/evaluation_metrics/XLM-roBERTa/overall_metrics.png)
+![Training and Validation](model/evaluation_metrics/XLM-roBERTa/train_val_loss.png)
+![Roc Curves](model/evaluation_metrics/XLM-roBERTa/roc_curves.png)
 ![F1 Score Per Class](model/evaluation_metrics/XLM-roBERTa/f1_per_class.png)
-![Confusion Matrix](model/evaluation_metrics/XLM-roBERTa/confusion_matrix.png)
 ![Metrics Comparison](model/evaluation_metrics/XLM-roBERTa/metrics_comparison.png)
+![Class Distribution](model/evaluation_metrics/XLM-roBERTa/class_distribution.png)
+![Confusion Matrix](model/evaluation_metrics/XLM-roBERTa/confusion_matrix.png)
 
 **Key Insights:**
 - Model achieves balanced performance across 16 MBTI types
